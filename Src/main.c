@@ -40,7 +40,7 @@
 #include "stm32f4xx_hal.h"
 
 /* USER CODE BEGIN Includes */
-
+#include <limits.h>
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -48,12 +48,55 @@ I2C_HandleTypeDef hi2c1;
 
 SPI_HandleTypeDef hspi1;
 
+TIM_HandleTypeDef htim10;
+
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
+///////////////////////////////////////////////////////////////
+/////////////// AKCELEROMETR //////////////////////////////////
+///////////////////////////////////////////////////////////////
+// Rejestry
+#define LSM303_ACC_ADDRESS (0x19 << 1) // adres akcelerometru: 0011001x
+#define LSM303_ACC_CTRL_REG1_A 0x20 // rejestr ustawien 1
+#define LSM303_ACC_Z_H_A 0x2D // wyzszy bajt danych osi Z
+#define LSM303_ACC_Z_L_A 0x2C // nizszy bajt danych osi Z
+#define LSM303_ACC_X_L_A 0x28 // mlodszy bajt danych osi X
 
+// mlodszy bajt danych osi X z najstarszym bitem ustawionym na 1 w celu
+// wymuszenia autoinkrementacji adresow rejestru w urzadzeniu docelowym
+// (zeby moc odczytac wiecej danych na raz)
+#define LSM303_ACC_X_L_A_MULTI_READ (LSM303_ACC_X_L_A | 0x80)
+
+
+// Maski bitowe
+// CTRL_REG1_A = [ODR3][ODR2][ODR1][ODR0][LPEN][ZEN][YEN][XEN]
+#define LSM303_ACC_XYZ_ENABLE 0x07 // 0000 0111
+#define LSM303_ACC_100HZ 0x50 //0101 0000
+#define LSM303_ACC_10HZ 0x20 //0010 0000
+#define LSM303_ACC_1HZ 0x10 //0001 0000
+
+#define LSM303_ACC_RESOLUTION 2.0 // Maksymalna wartosc przyspieszenia [g]
+
+// Zmienne
+uint8_t Data[6]; // Zmienna do bezposredniego odczytu danych z akcelerometru
+int16_t Xaxis = 0; // Zawiera przeksztalcona forme odczytanych danych z osi X
+int16_t Yaxis = 0; // Zawiera przeksztalcona forme odczytanych danych z osi Y
+int16_t Zaxis = 0; // Zawiera przeksztalcona forme odczytanych danych z osi Z
+
+float Xaxis_g = 0; // Zawiera przyspieszenie w osi X przekstalcone na jednostke fizyczna [g]
+float Yaxis_g = 0; // Zawiera przyspieszenie w osi Y przekstalcone na jednostke fizyczna [g]
+float Zaxis_g = 0; // Zawiera przyspieszenie w osi Z przekstalcone na jednostke fizyczna [g]
 /* USER CODE END PV */
+
+
+
+
+
+
+
+
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
@@ -61,6 +104,7 @@ static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_TIM10_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -103,7 +147,17 @@ int main(void)
   MX_I2C1_Init();
   MX_SPI1_Init();
   MX_USART1_UART_Init();
+  MX_TIM10_Init();
+
+
   /* USER CODE BEGIN 2 */
+
+  // wypelnienie zmiennej konfiguracyjnej odpowiednimi opcjami
+  uint8_t Settings = LSM303_ACC_XYZ_ENABLE | LSM303_ACC_10HZ;
+
+  // Wpisanie konfiguracji do rejestru akcelerometru
+  HAL_I2C_Mem_Write(&hi2c1, LSM303_ACC_ADDRESS, LSM303_ACC_CTRL_REG1_A, 1, &Settings, 1, 100);
+
 
   /* USER CODE END 2 */
 
@@ -111,6 +165,22 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
+	  // AKCELEROMETR
+	HAL_I2C_Mem_Read(&hi2c1, LSM303_ACC_ADDRESS, LSM303_ACC_X_L_A_MULTI_READ, 1, Data, 6, 100);
+	Xaxis = ((Data[1] << 8) | Data[0]);
+	Yaxis = ((Data[3] << 8) | Data[2]);
+	Zaxis = ((Data[5] << 8) | Data[4]);
+
+	// obliczenie przyspieszen w kazdej z osi w jednostce SI [g]
+	 Xaxis_g = ((float) Xaxis * LSM303_ACC_RESOLUTION) / (float) INT16_MAX;
+	 Yaxis_g = ((float) Yaxis * LSM303_ACC_RESOLUTION) / (float) INT16_MAX;
+	 Zaxis_g = ((float) Zaxis * LSM303_ACC_RESOLUTION) / (float) INT16_MAX;
+
+
+
+
+
 
   /* USER CODE END WHILE */
 
@@ -183,7 +253,7 @@ static void MX_I2C1_Init(void)
 {
 
   hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.ClockSpeed = 400000;
   hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
@@ -216,6 +286,22 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi1.Init.CRCPolynomial = 10;
   if (HAL_SPI_Init(&hspi1) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+}
+
+/* TIM10 init function */
+static void MX_TIM10_Init(void)
+{
+
+  htim10.Instance = TIM10;
+  htim10.Init.Prescaler = 9999;
+  htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim10.Init.Period = 4999;
+  htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  if (HAL_TIM_Base_Init(&htim10) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
