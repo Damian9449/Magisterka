@@ -41,6 +41,9 @@
 
 /* USER CODE BEGIN Includes */
 #include <limits.h>
+#include "SSD1331.h"
+
+
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -151,12 +154,23 @@ int main(void)
 
 
   /* USER CODE BEGIN 2 */
-
+  ///////////////////////////////////////////////////////////////
+  /////////////// AKCELEROMETR //////////////////////////////////
+  ///////////////////////////////////////////////////////////////
   // wypelnienie zmiennej konfiguracyjnej odpowiednimi opcjami
   uint8_t Settings = LSM303_ACC_XYZ_ENABLE | LSM303_ACC_10HZ;
 
   // Wpisanie konfiguracji do rejestru akcelerometru
   HAL_I2C_Mem_Write(&hi2c1, LSM303_ACC_ADDRESS, LSM303_ACC_CTRL_REG1_A, 1, &Settings, 1, 100);
+
+
+  ///////////////////////////////////////////////////////////////
+  ///////////////// SPI - OLED //////////////////////////////////
+  ///////////////////////////////////////////////////////////////
+  ssd1331_init();
+  ssd1331_clear_screen(BLACK);
+  ssd1331_display_string(0, 0, "Hello World!", FONT_1608, GREEN);
+
 
 
   /* USER CODE END 2 */
@@ -166,7 +180,9 @@ int main(void)
   while (1)
   {
 
-	  // AKCELEROMETR
+	  ///////////////////////////////////////////////////////////////
+	  /////////////// AKCELEROMETR //////////////////////////////////
+	  ///////////////////////////////////////////////////////////////
 	HAL_I2C_Mem_Read(&hi2c1, LSM303_ACC_ADDRESS, LSM303_ACC_X_L_A_MULTI_READ, 1, Data, 6, 100);
 	Xaxis = ((Data[1] << 8) | Data[0]);
 	Yaxis = ((Data[3] << 8) | Data[2]);
@@ -176,9 +192,6 @@ int main(void)
 	 Xaxis_g = ((float) Xaxis * LSM303_ACC_RESOLUTION) / (float) INT16_MAX;
 	 Yaxis_g = ((float) Yaxis * LSM303_ACC_RESOLUTION) / (float) INT16_MAX;
 	 Zaxis_g = ((float) Zaxis * LSM303_ACC_RESOLUTION) / (float) INT16_MAX;
-
-
-
 
 
 
