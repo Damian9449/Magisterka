@@ -111,6 +111,18 @@ static void MX_TIM10_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
+	if(htim->Instance == TIM10){ // Je¿eli przerwanie pochodzi od timera 10
+		HAL_GPIO_TogglePin(LED_BLUE_GPIO_Port, LED_BLUE_Pin);
+		ssd1331_clear_screen(BLACK);
+		ssd1331_display_string(0,  0, "XAxis: ", FONT_1608, GREEN);
+		ssd1331_display_string(0, 20, "YAxis: ", FONT_1608, RED);
+		ssd1331_display_string(0, 40, "ZAxis: ", FONT_1608, BLUE);
+	}
+}
+
+
+
 
 /* USER CODE END PFP */
 
@@ -163,7 +175,6 @@ int main(void)
   // Wpisanie konfiguracji do rejestru akcelerometru
   HAL_I2C_Mem_Write(&hi2c1, LSM303_ACC_ADDRESS, LSM303_ACC_CTRL_REG1_A, 1, &Settings, 1, 100);
 
-
   ///////////////////////////////////////////////////////////////
   ///////////////// SPI - OLED //////////////////////////////////
   ///////////////////////////////////////////////////////////////
@@ -171,6 +182,10 @@ int main(void)
   ssd1331_clear_screen(BLACK);
   ssd1331_display_string(0, 0, "Hello World!", FONT_1608, GREEN);
 
+  ///////////////////////////////////////////////////////////////
+  ///////////////// TIMER10 /////////////////////////////////////
+  ///////////////////////////////////////////////////////////////
+  HAL_TIM_Base_Start_IT(&htim10);
 
 
   /* USER CODE END 2 */
