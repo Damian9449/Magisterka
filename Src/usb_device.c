@@ -1,8 +1,8 @@
 /**
   ******************************************************************************
-  * @file           : main.h
-  * @brief          : Header for main.c file.
-  *                   This file contains the common defines of the application.
+  * @file           : usb_device.c
+  * @version        : v1.0_Cube
+  * @brief          : This file implements the USB Device
   ******************************************************************************
   * This notice applies to any and all portions of this file
   * that are not between comment pairs USER CODE BEGIN and
@@ -47,61 +47,75 @@
   ******************************************************************************
   */
 
-/* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __MAIN_H__
-#define __MAIN_H__
-
 /* Includes ------------------------------------------------------------------*/
+
+#include "usb_device.h"
+#include "usbd_core.h"
+#include "usbd_desc.h"
+#include "usbd_cdc.h"
+#include "usbd_cdc_if.h"
 
 /* USER CODE BEGIN Includes */
 
 /* USER CODE END Includes */
 
-/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PV */
+/* Private variables ---------------------------------------------------------*/
 
-#define BTN_BLUE_Pin GPIO_PIN_0
-#define BTN_BLUE_GPIO_Port GPIOA
-#define BTN_BLUE_EXTI_IRQn EXTI0_IRQn
-#define SCK_Pin GPIO_PIN_5
-#define SCK_GPIO_Port GPIOA
-#define MOSI_Pin GPIO_PIN_7
-#define MOSI_GPIO_Port GPIOA
-#define CS_Pin GPIO_PIN_5
-#define CS_GPIO_Port GPIOC
-#define DC_Pin GPIO_PIN_1
-#define DC_GPIO_Port GPIOB
-#define RES_Pin GPIO_PIN_7
-#define RES_GPIO_Port GPIOE
-#define LED_GREEN_Pin GPIO_PIN_12
-#define LED_GREEN_GPIO_Port GPIOD
-#define LED_ORANGE_Pin GPIO_PIN_13
-#define LED_ORANGE_GPIO_Port GPIOD
-#define LED_RED_Pin GPIO_PIN_14
-#define LED_RED_GPIO_Port GPIOD
-#define LED_BLUE_Pin GPIO_PIN_15
-#define LED_BLUE_GPIO_Port GPIOD
+/* USER CODE END PV */
 
-/* ########################## Assert Selection ############################## */
+/* USER CODE BEGIN PFP */
+/* Private function prototypes -----------------------------------------------*/
+
+/* USER CODE END PFP */
+
+/* USB Device Core handle declaration. */
+USBD_HandleTypeDef hUsbDeviceFS;
+
+/*
+ * -- Insert your variables declaration here --
+ */
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+/*
+ * -- Insert your external function declaration here --
+ */
+/* USER CODE BEGIN 1 */
+
+/* USER CODE END 1 */
+
 /**
-  * @brief Uncomment the line below to expanse the "assert_param" macro in the 
-  *        HAL drivers code
+  * Init USB device Library, add supported class and start the library
+  * @retval None
   */
-/* #define USE_FULL_ASSERT    1U */
+void MX_USB_DEVICE_Init(void)
+{
+  /* USER CODE BEGIN USB_DEVICE_Init_PreTreatment */
+  
+  /* USER CODE END USB_DEVICE_Init_PreTreatment */
+  
+  /* Init Device Library, add supported class and start the library. */
+  USBD_Init(&hUsbDeviceFS, &FS_Desc, DEVICE_FS);
 
-/* USER CODE BEGIN Private defines */
+  USBD_RegisterClass(&hUsbDeviceFS, &USBD_CDC);
 
-/* USER CODE END Private defines */
+  USBD_CDC_RegisterInterface(&hUsbDeviceFS, &USBD_Interface_fops_FS);
 
-#ifdef __cplusplus
- extern "C" {
-#endif
-void _Error_Handler(char *, int);
+  USBD_Start(&hUsbDeviceFS);
 
-#define Error_Handler() _Error_Handler(__FILE__, __LINE__)
-#ifdef __cplusplus
+  /* USER CODE BEGIN USB_DEVICE_Init_PostTreatment */
+  
+  /* USER CODE END USB_DEVICE_Init_PostTreatment */
 }
-#endif
 
-#endif /* __MAIN_H__ */
+/**
+  * @}
+  */
+
+/**
+  * @}
+  */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

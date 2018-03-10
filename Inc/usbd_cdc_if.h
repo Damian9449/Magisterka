@@ -1,8 +1,8 @@
 /**
   ******************************************************************************
-  * @file           : main.h
-  * @brief          : Header for main.c file.
-  *                   This file contains the common defines of the application.
+  * @file           : usbd_cdc_if.h
+  * @version        : v1.0_Cube
+  * @brief          : Header for usbd_cdc_if.c file.
   ******************************************************************************
   * This notice applies to any and all portions of this file
   * that are not between comment pairs USER CODE BEGIN and
@@ -48,60 +48,111 @@
   */
 
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __MAIN_H__
-#define __MAIN_H__
-
-/* Includes ------------------------------------------------------------------*/
-
-/* USER CODE BEGIN Includes */
-
-/* USER CODE END Includes */
-
-/* Private define ------------------------------------------------------------*/
-
-#define BTN_BLUE_Pin GPIO_PIN_0
-#define BTN_BLUE_GPIO_Port GPIOA
-#define BTN_BLUE_EXTI_IRQn EXTI0_IRQn
-#define SCK_Pin GPIO_PIN_5
-#define SCK_GPIO_Port GPIOA
-#define MOSI_Pin GPIO_PIN_7
-#define MOSI_GPIO_Port GPIOA
-#define CS_Pin GPIO_PIN_5
-#define CS_GPIO_Port GPIOC
-#define DC_Pin GPIO_PIN_1
-#define DC_GPIO_Port GPIOB
-#define RES_Pin GPIO_PIN_7
-#define RES_GPIO_Port GPIOE
-#define LED_GREEN_Pin GPIO_PIN_12
-#define LED_GREEN_GPIO_Port GPIOD
-#define LED_ORANGE_Pin GPIO_PIN_13
-#define LED_ORANGE_GPIO_Port GPIOD
-#define LED_RED_Pin GPIO_PIN_14
-#define LED_RED_GPIO_Port GPIOD
-#define LED_BLUE_Pin GPIO_PIN_15
-#define LED_BLUE_GPIO_Port GPIOD
-
-/* ########################## Assert Selection ############################## */
-/**
-  * @brief Uncomment the line below to expanse the "assert_param" macro in the 
-  *        HAL drivers code
-  */
-/* #define USE_FULL_ASSERT    1U */
-
-/* USER CODE BEGIN Private defines */
-
-/* USER CODE END Private defines */
+#ifndef __USBD_CDC_IF_H__
+#define __USBD_CDC_IF_H__
 
 #ifdef __cplusplus
  extern "C" {
 #endif
-void _Error_Handler(char *, int);
 
-#define Error_Handler() _Error_Handler(__FILE__, __LINE__)
+/* Includes ------------------------------------------------------------------*/
+#include "usbd_cdc.h"
+
+/* USER CODE BEGIN INCLUDE */
+
+/* USER CODE END INCLUDE */
+
+/** @addtogroup STM32_USB_OTG_DEVICE_LIBRARY
+  * @brief For Usb device.
+  * @{
+  */
+  
+/** @defgroup USBD_CDC_IF USBD_CDC_IF
+  * @brief Usb VCP device module
+  * @{
+  */ 
+
+/** @defgroup USBD_CDC_IF_Exported_Defines USBD_CDC_IF_Exported_Defines
+  * @brief Defines.
+  * @{
+  */
+/* USER CODE BEGIN EXPORTED_DEFINES */
+
+/* USER CODE END EXPORTED_DEFINES */
+
+/**
+  * @}
+  */
+
+/** @defgroup USBD_CDC_IF_Exported_Types USBD_CDC_IF_Exported_Types
+  * @brief Types.
+  * @{
+  */
+
+/* USER CODE BEGIN EXPORTED_TYPES */
+
+/* USER CODE END EXPORTED_TYPES */
+
+/**
+  * @}
+  */
+
+/** @defgroup USBD_CDC_IF_Exported_Macros USBD_CDC_IF_Exported_Macros
+  * @brief Aliases.
+  * @{
+  */
+
+/* USER CODE BEGIN EXPORTED_MACRO */
+
+/* USER CODE END EXPORTED_MACRO */
+
+/**
+  * @}
+  */
+
+/** @defgroup USBD_CDC_IF_Exported_Variables USBD_CDC_IF_Exported_Variables
+  * @brief Public variables.
+  * @{
+  */
+
+/** CDC Interface callback. */
+extern USBD_CDC_ItfTypeDef USBD_Interface_fops_FS;
+
+/* USER CODE BEGIN EXPORTED_VARIABLES */
+
+/* USER CODE END EXPORTED_VARIABLES */
+
+/**
+  * @}
+  */
+
+/** @defgroup USBD_CDC_IF_Exported_FunctionsPrototype USBD_CDC_IF_Exported_FunctionsPrototype
+  * @brief Public functions declaration.
+  * @{
+  */
+
+uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
+
+/* USER CODE BEGIN EXPORTED_FUNCTIONS */
+
+/* USER CODE END EXPORTED_FUNCTIONS */
+
+/**
+  * @}
+  */
+
+/**
+  * @}
+  */
+
+/**
+  * @}
+  */
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __MAIN_H__ */
+#endif /* __USBD_CDC_IF_H__ */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

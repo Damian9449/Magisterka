@@ -3,46 +3,60 @@
   * @file           : main.c
   * @brief          : Main program body
   ******************************************************************************
-  ** This notice applies to any and all portions of this file
+  * This notice applies to any and all portions of this file
   * that are not between comment pairs USER CODE BEGIN and
   * USER CODE END. Other portions of this file, whether 
   * inserted by the user or by software development tools
   * are owned by their respective copyright owners.
   *
-  * COPYRIGHT(c) 2018 STMicroelectronics
+  * Copyright (c) 2018 STMicroelectronics International N.V. 
+  * All rights reserved.
   *
-  * Redistribution and use in source and binary forms, with or without modification,
-  * are permitted provided that the following conditions are met:
-  *   1. Redistributions of source code must retain the above copyright notice,
-  *      this list of conditions and the following disclaimer.
-  *   2. Redistributions in binary form must reproduce the above copyright notice,
-  *      this list of conditions and the following disclaimer in the documentation
-  *      and/or other materials provided with the distribution.
-  *   3. Neither the name of STMicroelectronics nor the names of its contributors
-  *      may be used to endorse or promote products derived from this software
-  *      without specific prior written permission.
+  * Redistribution and use in source and binary forms, with or without 
+  * modification, are permitted, provided that the following conditions are met:
   *
-  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-  * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-  * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  * 1. Redistribution of source code must retain the above copyright notice, 
+  *    this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  *    this list of conditions and the following disclaimer in the documentation
+  *    and/or other materials provided with the distribution.
+  * 3. Neither the name of STMicroelectronics nor the names of other 
+  *    contributors to this software may be used to endorse or promote products 
+  *    derived from this software without specific written permission.
+  * 4. This software, including modifications and/or derivative works of this 
+  *    software, must execute solely and exclusively on microcontroller or
+  *    microprocessor devices manufactured by or for STMicroelectronics.
+  * 5. Redistribution and use of this software other than as permitted under 
+  *    this license is void and will automatically terminate your rights under 
+  *    this license. 
+  *
+  * THIS SOFTWARE IS PROVIDED BY STMICROELECTRONICS AND CONTRIBUTORS "AS IS" 
+  * AND ANY EXPRESS, IMPLIED OR STATUTORY WARRANTIES, INCLUDING, BUT NOT 
+  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A 
+  * PARTICULAR PURPOSE AND NON-INFRINGEMENT OF THIRD PARTY INTELLECTUAL PROPERTY
+  * RIGHTS ARE DISCLAIMED TO THE FULLEST EXTENT PERMITTED BY LAW. IN NO EVENT 
+  * SHALL STMICROELECTRONICS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+  * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, 
+  * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF 
+  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
+  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   *
   ******************************************************************************
   */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32f4xx_hal.h"
+#include "usb_device.h"
 
 /* USER CODE BEGIN Includes */
 #include <limits.h>
+#include <stdio.h>
+#include <math.h>
 #include "SSD1331.h"
-
+#include <errno.h>
+#include "usbd_cdc_if.h" // Plik bedacy interfejsem uzytkownika do kontrolera USB
 
 /* USER CODE END Includes */
 
@@ -52,6 +66,7 @@ I2C_HandleTypeDef hi2c1;
 SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim10;
+TIM_HandleTypeDef htim11;
 
 UART_HandleTypeDef huart1;
 
@@ -60,6 +75,7 @@ UART_HandleTypeDef huart1;
 ///////////////////////////////////////////////////////////////
 /////////////// AKCELEROMETR //////////////////////////////////
 ///////////////////////////////////////////////////////////////
+
 // Rejestry
 #define LSM303_ACC_ADDRESS (0x19 << 1) // adres akcelerometru: 0011001x
 #define LSM303_ACC_CTRL_REG1_A 0x20 // rejestr ustawien 1
@@ -91,15 +107,26 @@ int16_t Zaxis = 0; // Zawiera przeksztalcona forme odczytanych danych z osi Z
 float Xaxis_g = 0; // Zawiera przyspieszenie w osi X przekstalcone na jednostke fizyczna [g]
 float Yaxis_g = 0; // Zawiera przyspieszenie w osi Y przekstalcone na jednostke fizyczna [g]
 float Zaxis_g = 0; // Zawiera przyspieszenie w osi Z przekstalcone na jednostke fizyczna [g]
+
+
+///////////////////////////////////////////////////////////////
+//////////////////// UART /////////////////////////////////////
+///////////////////////////////////////////////////////////////
+
+
+///////////////////////////////////////////////////////////////
+///////////////////// USB /////////////////////////////////////
+///////////////////////////////////////////////////////////////
+
+uint8_t DataToSend[40]; // Tablica zawierajaca dane do wyslania
+uint8_t MessageCounter = 0; // Licznik wyslanych wiadomosci
+uint8_t MessageLength = 0; // Zawiera dlugosc wysylanej wiadomosci
+
+uint8_t ReceivedData[40]; // Tablica przechowujaca odebrane dane
+uint8_t ReceivedDataFlag = 0; // Flaga informujaca o odebraniu danych
+
+
 /* USER CODE END PV */
-
-
-
-
-
-
-
-
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
@@ -108,25 +135,152 @@ static void MX_I2C1_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_TIM10_Init(void);
+static void MX_TIM11_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
+
+	if(htim->Instance == TIM11){ // Je¿eli przerwanie pochodzi od timera 11
+
+		 static uint16_t cnt = 0; // Licznik wyslanych wiadomosci
+		 uint8_t data[50];// Tablica przechowujaca wysylana wiadomosc.
+		 uint16_t size = 0; // Rozmiar wysylanej wiadomosci ++cnt; // Zwiekszenie licznika wyslanych wiadomosci.
+
+		 ++cnt; // Zwiekszenie licznika wyslanych wiadomosci.
+		 size = sprintf(data, "Liczba wyslanych wiadomosci: %d.\n\r", cnt); // Stworzenie wiadomosci do wyslania oraz przypisanie ilosci wysylanych znakow do zmiennej size.
+		 HAL_UART_Transmit_IT(&huart1, data, size); // Rozpoczecie nadawania danych z wykorzystaniem przerwan
+		 HAL_GPIO_TogglePin(LED_RED_GPIO_Port, LED_RED_Pin); // Zmiana stanu pinu na diodzie LED
+
+		}
+
+
+
 	if(htim->Instance == TIM10){ // Je¿eli przerwanie pochodzi od timera 10
 		HAL_GPIO_TogglePin(LED_BLUE_GPIO_Port, LED_BLUE_Pin);
+
+		char str_XAxis[13] = "XAxis: ";
+		char str_YAxis[13] = "YAxis: ";
+		char str_ZAxis[13] = "ZAxis: ";
+
+		update_str_int(Xaxis, 6, str_XAxis);
+		update_str_int(Yaxis, 6, str_YAxis);
+		update_str_int(Zaxis, 6, str_ZAxis);
+
+//		update_str_float(Xaxis_g, 6, str_XAxis);
+//		update_str_float(Yaxis_g, 6, str_YAxis);
+//		update_str_float(Zaxis_g, 6, str_ZAxis);
+
 		ssd1331_clear_screen(BLACK);
-		ssd1331_display_string(0,  0, "XAxis: ", FONT_1608, GREEN);
-		ssd1331_display_string(0, 20, "YAxis: ", FONT_1608, RED);
-		ssd1331_display_string(0, 40, "ZAxis: ", FONT_1608, BLUE);
+		ssd1331_display_string(0,  0, str_XAxis, FONT_1206, GREEN);
+		ssd1331_display_string(0, 14, str_YAxis, FONT_1206, RED);
+		ssd1331_display_string(0, 28, str_ZAxis, FONT_1206, BLUE);
+
 	}
 }
 
 
+///////////////////////////////////////////////////////////////
+///////////////////// GPIO /////////////////////////////////////
+///////////////////////////////////////////////////////////////
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
+	HAL_GPIO_TogglePin(LED_ORANGE_GPIO_Port, LED_ORANGE_Pin); // Zmiana stanu pinu na diodzie LED
+}
 
 
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+
+// reverses a string 'str' of length 'len'
+void reverse(char *str, int len)
+{
+    int i=0, j=len-1, temp;
+    while (i<j)
+    {
+        temp = str[i];
+        str[i] = str[j];
+        str[j] = temp;
+        i++; j--;
+    }
+}
+
+ // Converts a given integer x to string str[].  d is the number
+ // of digits required in output. If d is more than the number
+ // of digits in x, then 0s are added at the beginning.
+int intToStr(int x, char str[], int d)
+{
+    int i = 0;
+    while (x)
+    {
+        str[i++] = (x%10) + '0';
+        x = x/10;
+    }
+
+    // If number of digits required is more, then
+    // add 0s at the beginning
+    while (i < d)
+        str[i++] = '0';
+
+    reverse(str, i);
+    str[i] = '\0';
+    return i;
+}
+
+// Converts a floating point number to string.
+void ftoa(float n, char *res, int afterpoint)
+{
+    // Extract integer part
+    int ipart = (int)n;
+
+    // Extract floating part
+    float fpart = n - (float)ipart;
+
+    // convert integer part to string
+    int i = intToStr(ipart, res, 0);
+
+    // check for display option after point
+    if (afterpoint != 0)
+    {
+        res[i] = '.';  // add dot
+
+        // Get the value of fraction part up to given no.
+        // of points after dot. The third parameter is needed
+        // to handle cases like 233.007
+        fpart = fpart * 1000;
+
+        intToStr((int)fpart, res + i + 1, afterpoint);
+    }
+}
+
+///////////////////////////////////////////////////////////////
+///////////////////// MOJE FUNKCJE ////////////////////////////
+///////////////////////////////////////////////////////////////
+
+//konwersja typu int na char[]
+void update_str_int(int16_t number, int size, char string[]){
+	char tmp_str[size];
+	sprintf(tmp_str, "%d", number);
+
+	const int przesuniecie_napisu = 7;
+	int i = 0;
+	for(i = 0; i < size; ++i){
+		string[i + przesuniecie_napisu] = tmp_str[i];
+	}
+}
+
+//konwersja typu float na char[]
+void update_str_float(float number, int size, char string[]){
+	char tmp_str[size];
+	ftoa(number, tmp_str, 4);
+	const int przesuniecie_napisu = 7;
+	int i = 0;
+	for(i = 0; i < size; ++i){
+		string[i + przesuniecie_napisu] = tmp_str[i];
+	}
+}
+
 
 /* USER CODE END 0 */
 
@@ -163,8 +317,8 @@ int main(void)
   MX_SPI1_Init();
   MX_USART1_UART_Init();
   MX_TIM10_Init();
-
-
+  MX_TIM11_Init();
+  MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
   ///////////////////////////////////////////////////////////////
   /////////////// AKCELEROMETR //////////////////////////////////
@@ -180,12 +334,18 @@ int main(void)
   ///////////////////////////////////////////////////////////////
   ssd1331_init();
   ssd1331_clear_screen(BLACK);
-  ssd1331_display_string(0, 0, "Hello World!", FONT_1608, GREEN);
 
   ///////////////////////////////////////////////////////////////
-  ///////////////// TIMER10 /////////////////////////////////////
+  ///////////////// TIMER's /////////////////////////////////////
   ///////////////////////////////////////////////////////////////
   HAL_TIM_Base_Start_IT(&htim10);
+  HAL_TIM_Base_Start_IT(&htim11);
+
+
+  ///////////////////////////////////////////////////////////////
+  //////////////////// UART /////////////////////////////////////
+  ///////////////////////////////////////////////////////////////
+
 
 
   /* USER CODE END 2 */
@@ -208,6 +368,24 @@ int main(void)
 	 Yaxis_g = ((float) Yaxis * LSM303_ACC_RESOLUTION) / (float) INT16_MAX;
 	 Zaxis_g = ((float) Zaxis * LSM303_ACC_RESOLUTION) / (float) INT16_MAX;
 
+
+	 if (HAL_GPIO_ReadPin(BTN_BLUE_GPIO_Port, BTN_BLUE_Pin) == GPIO_PIN_SET) {
+	  HAL_Delay(100);
+	  if (HAL_GPIO_ReadPin(BTN_BLUE_GPIO_Port, BTN_BLUE_Pin) == GPIO_PIN_SET) {
+		  ++MessageCounter;
+		   MessageLength = sprintf(DataToSend, "Wiadomosc nr %d\n\r", MessageCounter);
+		   CDC_Transmit_FS(DataToSend, MessageLength);
+	  }
+	 }
+
+
+	 // Odeslanie odebranych danych przez USB
+	 if(ReceivedDataFlag == 1){
+	  ReceivedDataFlag = 0;
+
+	  MessageLength = sprintf(DataToSend, "Odebrano: %s\n\r", ReceivedData);
+	  CDC_Transmit_FS(DataToSend, MessageLength);
+	 }
 
 
   /* USER CODE END WHILE */
@@ -242,9 +420,9 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 4;
-  RCC_OscInitStruct.PLL.PLLN = 100;
+  RCC_OscInitStruct.PLL.PLLN = 72;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 4;
+  RCC_OscInitStruct.PLL.PLLQ = 3;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
@@ -259,7 +437,7 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
@@ -336,6 +514,22 @@ static void MX_TIM10_Init(void)
 
 }
 
+/* TIM11 init function */
+static void MX_TIM11_Init(void)
+{
+
+  htim11.Instance = TIM11;
+  htim11.Init.Prescaler = 9999;
+  htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim11.Init.Period = 9999;
+  htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  if (HAL_TIM_Base_Init(&htim11) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+}
+
 /* USART1 init function */
 static void MX_USART1_UART_Init(void)
 {
@@ -389,7 +583,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : BTN_BLUE_Pin */
   GPIO_InitStruct.Pin = BTN_BLUE_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(BTN_BLUE_GPIO_Port, &GPIO_InitStruct);
 
@@ -420,6 +614,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 
 }
 
